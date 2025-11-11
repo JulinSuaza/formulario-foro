@@ -9,12 +9,31 @@ const PORT = process.env.PORT || 3000;
 const __dirname = path.resolve();
 const DATA_FILE = path.join(__dirname, "formularios.json");
 
-app.use(cors());
+// Configuración CORS más detallada
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Manejar solicitudes OPTIONS (preflight)
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware de logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Ruta para recibir formularios
 app.post("/api/formulario", (req, res) => {
+  console.log("Solicitud recibida en /api/formulario");
+  console.log("Datos recibidos:", req.body);
+  
   const { nombre, email, mensaje } = req.body;
 
   if (!nombre || !email || !mensaje) {
@@ -28,14 +47,32 @@ app.post("/api/formulario", (req, res) => {
     fecha: new Date().toISOString()
   };
 
-  let datos = [];
-  if (fs.existsSync(DATA_FILE)) {
-    datos = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  try {
+    let datos = [];
+    if (fs.existsSync(DATA_FILE)) {
+      try {
+        const fileContent = fs.readFileSync(DATA_FILE, "utf8");
+        datos = fileContent ? JSON.parse(fileContent) : [];
+      } catch (error) {
+        console.error("Error al leer el archivo:", error);
+        return res.status(500).json({ error: "Error al procesar los datos existentes" });
+      }
+    }
+    
+    datos.push(nuevo);
+    
+    try {
+      fs.writeFileSync(DATA_FILE, JSON.stringify(datos, null, 2));
+      console.log("Datos guardados correctamente");
+      return res.status(201).json({ ok: true, mensaje: "Formulario recibido con éxito." });
+    } catch (error) {
+      console.error("Error al guardar los datos:", error);
+      return res.status(500).json({ error: "Error al guardar los datos del formulario" });
+    }
+  } catch (error) {
+    console.error("Error inesperado:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
   }
-  datos.push(nuevo);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(datos, null, 2));
-
-  res.status(201).json({ ok: true, mensaje: "Formulario recibido con éxito." });
 });
 
 // 🌐 Ruta bonita para ver los formularios
