@@ -3,88 +3,18 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import cors from "cors";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || "tu_clave_secreta_por_defecto";
 const __dirname = path.resolve();
 const DATA_FILE = path.join(__dirname, "formularios.json");
-const USERS_FILE = path.join(__dirname, "users.json");
-
-// Crear archivo users.json si no existe
-if (!fs.existsSync(USERS_FILE)) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2));
-}
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware de autenticación
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token inválido o expirado' });
-    req.user = user;
-    next();
-  });
-};
-
-// Ruta de registro
-app.post("/api/register", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-      return res.status(400).json({ error: "Usuario y contraseña son requeridos" });
-    }
-
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-    if (users.find(u => u.username === username)) {
-      return res.status(400).json({ error: "El usuario ya existe" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    users.push({ username, password: hashedPassword });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-
-    res.status(201).json({ message: "Usuario registrado exitosamente" });
-  } catch (error) {
-    res.status(500).json({ error: "Error al registrar el usuario" });
-  }
-});
-
-// Ruta de login
-app.post("/api/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const users = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-    const user = users.find(u => u.username === username);
-
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
-    }
-
-    const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
-  } catch (error) {
-    res.status(500).json({ error: "Error al iniciar sesión" });
-  }
-});
-
-// Ruta para verificar el token
-app.get("/api/verify-token", authenticateToken, (req, res) => {
-  res.json({ valid: true, user: req.user });
-});
-
-// Ruta para recibir formularios (protegida)
-app.post("/api/formulario", authenticateToken, (req, res) => {
+// Ruta para recibir formularios
+app.post("/api/formulario", (req, res) => {
   const { nombre, email, mensaje } = req.body;
 
   if (!nombre || !email || !mensaje) {
@@ -95,8 +25,7 @@ app.post("/api/formulario", authenticateToken, (req, res) => {
     nombre,
     email,
     mensaje,
-    fecha: new Date().toISOString(),
-    enviadoPor: req.user.username // Guardamos qué usuario envió el formulario
+    fecha: new Date().toISOString()
   };
 
   let datos = [];
