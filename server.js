@@ -34,16 +34,17 @@ app.post("/api/formulario", (req, res) => {
   console.log("Solicitud recibida en /api/formulario");
   console.log("Datos recibidos:", req.body);
   
-  const { nombre, email, mensaje } = req.body;
+  // Obtener todos los campos del formulario
+  const formData = req.body;
 
-  if (!nombre || !email || !mensaje) {
+  // Validar campos requeridos (puedes ajustar según necesites)
+  if (!formData.nombre || !formData.apellido || !formData.fechaNacimiento) {
     return res.status(400).json({ error: "Faltan campos requeridos." });
   }
 
+  // Crear un nuevo objeto con los datos del formulario
   const nuevo = {
-    nombre,
-    email,
-    mensaje,
+    ...formData,
     fecha: new Date().toISOString()
   };
 
